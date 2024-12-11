@@ -2193,7 +2193,7 @@ class Unit(NamedUnit, metaclass=_UnitMetaClass):
     def __init__(self, st, represents=None, doc=None, format=None, namespace=None):
         represents = Unit(represents)
         self._represents = represents
-
+        self.format = format
         NamedUnit.__init__(self, st, namespace=namespace, doc=doc, format=format)
 
     @property
@@ -2222,6 +2222,11 @@ class Unit(NamedUnit, metaclass=_UnitMetaClass):
         powers = [power for _, power in physical_type_id]
         return CompositeUnit(1, bases, powers, _error_check=False)
 
+    # def __repr__(self):
+    #     if self.format == "fits":
+    #         return f"<FITS: >"
+    #     else:
+    #         return super().__repr__()
 
 class PrefixUnit(Unit):
     """

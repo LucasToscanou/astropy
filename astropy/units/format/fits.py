@@ -48,6 +48,7 @@ class FITS(Base, _GenericParserMixin):
             "", "da", "h", "k", "M", "G", "T", "P", "E", "Z", "Y",
         ]  # fmt: skip
 
+
         special_cases = {"dbyte": u.Unit("dbyte", 0.1 * u.byte)}
 
         for key, _ in utils.get_non_keyword_units(bases, prefixes):
@@ -58,7 +59,19 @@ class FITS(Base, _GenericParserMixin):
             "ct", "photon", "ph", "pixel", "pix", "D", "Sun", "chan",
             "bin", "voxel", "adu", "beam", "erg", "Angstrom", "angstrom",
         ]  # fmt: skip
-        names.update((unit, getattr(u, unit)) for unit in simple_units)
+
+        # Add "log()" version of each unit
+        log_units = [f"log({unit})" for unit in simple_units]
+        simple_units.extend(log_units)
+
+        # Update names dictionary with simple units and their log versions
+        for unit in simple_units:
+            if unit.startswith("log("):
+                base_unit = unit[4:-1]
+                if base_unit in names:
+                    names[unit] = u.def_unit(unit, format={"fits": unit})
+            else:
+                names[unit] = getattr(u, unit)
 
         return names
 
@@ -87,8 +100,15 @@ class FITS(Base, _GenericParserMixin):
             parts.append(f"10**{int(base)}")
             unit = core.CompositeUnit(1, unit.bases, unit.powers)
 
-        if unit.bases:
-            parts.append(super().to_string(unit, fraction=fraction))
+        # Convert log units to dex units in FITS format
+        unit_str = unit.to_string(format="generic")
+        print("unit_str:", unit_str)
+        if unit_str.startswith("log(") and unit_str.endswith(")"):
+            print("unit_str[4:-1]:", unit_str[4:-1])
+            unit_str = f"dex({unit_str[4:-1]})"
+        parts.append(unit_str)
+
+        print("parts:", parts) 
 
         return cls._scale_unit_separator.join(parts)
 
@@ -96,5 +116,6 @@ class FITS(Base, _GenericParserMixin):
     def parse(cls, s: str, debug: bool = False) -> UnitBase:
         result = cls._do_parse(s, debug)
         if hasattr(result, "function_unit"):
-            raise ValueError("Function units are not yet supported for FITS units.")
+            if result.function_unit == "log":
+                return u.dex(result.unit)
         return result
